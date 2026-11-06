@@ -2,6 +2,14 @@
 from PySide6.QtCore import QObject, Signal, QTranslator, QLibraryInfo
 
 DE = {
+'Target data index':'Ziel-Messindex',
+'Target data index addresses the current module. Data index selects the graph and the proposed new index.':'Der Ziel-Messindex adressiert das aktuelle Modul. Messindex wählt den Graphen und den vorgeschlagenen neuen Index.',
+'Hardware ID and target data index must be unique together on the CAN bus.':'Hardware-ID und Ziel-Messindex müssen zusammen auf dem CAN-Bus eindeutig sein.',
+'Configuration requires indexed F0 Manager firmware 0.5.3 or newer.':'Die Konfiguration benötigt die indexbasierte F0-Manager-Firmware ab 0.5.3.',
+'Select Hardware ID 0..8 and target data index 0..255':'Hardware-ID 0..8 und Ziel-Messindex 0..255 auswählen',
+'Configuration target index differs from readback':'Ziel-Messindex stimmt nicht mit der Rücklesung überein',
+'Save configuration permanently and verify readback? Hardware ID and target data index must identify one module. Check sensor compatibility. Bitrate changes apply after restart; restart after changing sensor type.':'Konfiguration dauerhaft speichern und zurücklesen? Hardware-ID und Ziel-Messindex müssen genau ein Modul bestimmen. Sondenkompatibilität prüfen. Bitratenänderungen gelten nach Neustart; nach Änderung des Sensortyps neu starten.',
+
 'CAN diagnostics & configuration':'CAN-Diagnose und Konfiguration',
 'Language':'Sprache','Connection':'Verbindung','CAN adapter':'CAN-Adapter',
 'Interface / port':'Schnittstelle / Port','Bus bitrate':'Bus-Bitrate',

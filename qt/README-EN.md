@@ -1,4 +1,6 @@
-# rusEFI Wideband Manager 0.6 — Windows and Linux
+> 0.6.1 update: Configuration requires indexed F0 Manager firmware 0.5.3+. Set Hardware ID and Target data index to the module's current address. Data index is the graph/proposed new index. Read before writing. Confirmed index changes follow the new address; changing target clears cached settings, trim and diagnostics. Hardware ID + index must be unique together. No configuration fallback to older firmware. Firmware remains the existing indexed 0.5.3 image (SHA256 `115fdf2327c34ee9c6c4a42efd5959679e707484614573c498f71ea976b8750c`). The original 0.6 notes below describe earlier behavior where explicitly versioned.
+
+# rusEFI Wideband Manager 0.6.1 — Windows and Linux
 
 One Qt/PySide6 application, one CAN service/update workflow and the existing shared C protocol/analytics core. Select **English / Deutsch** at the top right. Language switches immediately and is saved per user. Unsaved inputs, live data and paused history remain intact. CSV schemas and backup files are language-independent. Driver/OS diagnostics may retain their original technical text.
 

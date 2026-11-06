@@ -1,0 +1,31 @@
+Protocol, malformed SLCAN, vectors and CRC tests passed.
+Backup CRC/validation, reply correlation, multi-channel analytics, warmup, gaps and rings passed.
+Actual F0 CAN dispatcher/config tests passed
+Indexed two-node actual client/firmware tests passed: isolated Rtrim/readback, stale cache, wrong replies, timeout/no legacy fallback, index changes, defaults, restore, flash failure, lost ACK and selector validation.
+CAN selector, record corruption/torn writes and addressed ACK checks passed
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.770s
+
+OK
+PASS: config migration, all values, 64 corruptions, flash readback/failure, both CAN rates, rich/stoich/lean sampler/lambda
+.
+----------------------------------------------------------------------
+Ran 1 test in 1.406s
+
+OK
+PASS: real F0 setters, atomic selection, physical-mode isolation, reboot reload, both bitrates, failed-write rollback, missing/corrupt Rtrim
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.876s
+
+OK
+PASS: real 256-byte configuration, compact rollback, unchanged legacy bytes, defaults, no-op writes and repair after erase failure, both bitrates
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.924s
+
+OK
+Protocol, malformed SLCAN, vectors and CRC tests passed.
+Backup CRC/validation, reply correlation, multi-channel analytics, warmup, gaps and rings passed.
+Trace units, dual-axis bounds, wrap-safe windows, invalid/stale data and diagnostic-only sampling passed.

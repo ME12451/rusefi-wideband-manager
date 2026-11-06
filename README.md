@@ -1,17 +1,53 @@
-# rusEFI Wideband Manager 0.5.3
+# rusEFI Wideband Manager
 
-Native Windows x64 manager and F0 CAN firmware. **Configuration now targets Hardware ID + current data index**, so two HW-4 boards with indices 0 and 1 can have independent settings and Rtrim. The new manager requires the indexed firmware for configuration. Update each board individually before using them together.
+CAN configuration and diagnostics for rusEFI F0 wideband modules on Windows and Linux. The current shared Qt application is **0.6.1**, in English and German. It includes the indexed configuration workflow from the native Windows Manager 0.5.3.
 
-- [Release 0.5.3, update steps, protocol and measured memory](RELEASE-0.5.3.md)
-- [Desktop controls and live graph](README-DESKTOP.md)
-- [Settings and CAN protocol](SETTINGS.md)
+## Releases and history
 
-The EXE continues the small native Win32 0.5 line; no Qt/Python runtime is bundled. UI language is English. Only CAN module communication is implemented, through PCAN or SLCAN adapters. No AEMNet, EGT or analog-output configuration is added.
+- `v0.1.0`: original Windows Manager sources recovered from the existing 0.1 release archive.
+- `v0.6.0`: preserved shared Qt 0.6 sources plus native Windows 0.5.3 development sources.
+- `v0.6.1`: shared Windows/Linux manager with indexed module configuration.
 
-The firmware adds 60 bytes of flash compared with Manager firmware 0.4. RAM section sizes, heap reserve, stack budgets, configuration format and bootloader are unchanged. Measurement/control algorithms and selectable Rtrim calculation remain unchanged.
+These are imports of preserved snapshots, not a reconstruction of intermediate development commits. Historical source manifests describe their original release snapshots. Original sources and archives remain unchanged in the development workspace. Native Windows 0.5.3 remains in `src/`; the current shared application lives in `qt/`. The older GTK application in `linux/` and packaging scripts for older versions are historical.
 
-Strict cross-builds, firmware image checks, actual-code client/dispatcher tests and simulated Windows GUI tests pass. No physical module/adapter has been tested or flashed in this session. Current validation details and limitations are in the release notes and packaged validation directory.
+## Download and operate
 
-Build Windows with `./build.sh` and MinGW-w64 (`CC_WINDOWS` overrides the compiler). Build firmware with `./build-firmware.sh` and ARM GNU 14.3.Rel1. See the release notes for dependencies and included sources. Run `./tests/run.sh` plus `./tests/run_desktop.sh`; then `python3 verify_release.py` and `python3 analyze_stack.py`.
+Download Windows x64 ZIP or Linux x86_64 tar.gz from Releases, extract the whole archive and launch the manager. Python and Qt are bundled. The Linux binary requires **glibc 2.43 or newer**; rebuild from source for older distributions. Windows supports PCAN and SLCAN; Linux supports SocketCAN and SLCAN. Set SocketCAN bitrate outside the application.
 
-The older descriptions in `FUNKTIONEN.md`, `RISIKEN.md`, `VERGLEICH.md` and `docs/historical/README-0.4.md` describe firmware 0.4 and earlier. The 0.5.3 release notes supersede their HW-only targeting and memory figures. The separate Qt 0.6 and Linux 0.5 projects are retained in the development workspace and are not part of this Windows release.
+Configuration now requires indexed F0 Manager firmware **0.5.3 or newer** from [ME12451/wideband](https://github.com/ME12451/wideband/tree/manager-latest). The minimal [wideband-selectable](https://github.com/ME12451/wideband/tree/wideband-selectable) branch only adds persisted CAN bitrate selection and does not provide the extended Manager configuration service. Firmware updates connect exactly one module. No firmware change is required when updating from native Manager 0.5.3.
+
+Choose Hardware ID and **Target data index** to address the module's current configuration. **Data index** selects the graph and proposed new index when saving settings. Read before writing. A confirmed index change moves the target and verifies readback at the new address. Changing the target clears cached settings, editable Rtrim and diagnostics. Two modules must not share both HW ID and index. Older legacy commands still require a unique HW ID.
+
+See [English guide](qt/README-EN.md), [German guide](qt/README-DE.md), and [0.6.1 changes](RELEASE-0.6.1.md).
+
+## Run from source
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r qt/requirements.txt
+bash qt/build_core.sh
+python qt/main.py
+```
+
+`--demo` simulates values and blocks CAN transmissions. C library build requires a C compiler; Windows can build the DLL with `CC_WINDOWS=x86_64-w64-mingw32-gcc bash qt/build_core.sh`. Build native Windows without Qt using `bash build.sh`.
+
+Linux packaging: install PyInstaller 6.19.0, then `python qt/build_linux.py`. If XCB libraries are outside standard system paths, set `WB_QT_XCB_LIB_DIR` to their directory; the release bundles the five optional XCB image/keysyms/ICCCM/cursor/render-util libraries. Windows packaging: `python qt/build_windows.py --python-zip <official-embeddable-python.zip> --wheels <pinned-wheel-directory> --output <output-directory>`. See each script's options.
+
+Firmware sources are mirrored under `firmware-f0/`. Fetch pinned dependencies with `bash prepare-firmware-deps.sh` (or set `WIDEBAND_DEP_SOURCE` to an existing matching wideband clone), provide ARM GNU 14.3.Rel1 through `ARM_TOOLCHAIN`, then run `bash build-firmware.sh`. The firmware repository is the canonical source. Release firmware is attached there; generated images and dependency checkouts are excluded here.
+
+## Validation
+
+```sh
+bash qt/build_core.sh
+python tests/test_qt_backend.py
+python tests/test_qt_i18n.py
+python tests/test_indexed_service.py
+bash tests/run_desktop.sh
+```
+
+Backend tests run the actual F0 C++ dispatcher with a fake HAL, including two modules with one HW ID, independent Rtrim, index changes, backup/restore, rejection of wrong replies and no automatic retry. Full `tests/run.sh` also requires a firmware build. GUI smoke tests run with `python qt/main.py --demo --settings-file /tmp/wb-test.ini --smoke-test /tmp/wb-smoke`.
+
+No physical module/CAN-adapter tests have been performed. Windows GUI validation uses Wine; Linux uses a virtual display. Firmware binary date fields and CRC can change on rebuild.
+
+Project source license: [MIT](LICENSE). Bundled dependencies retain their licenses; see [third-party notices](qt/licenses/THIRD-PARTY-NOTICES.md).

@@ -16,3 +16,7 @@ firmware-f0/firmware/build/
 firmware-f0/firmware/ChibiOS
 firmware-f0/firmware/libfirmware
 .dep/
+build/
+.venv/
+firmware-f0/firmware/deliver/
+firmware-f0/for_rusefi/wideband_image.h

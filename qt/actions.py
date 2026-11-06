@@ -10,7 +10,7 @@ class Actions:
         if self.demo:raise ValueError('Demo mode blocks CAN transmission')
         if not self.link or self.link.error:raise ValueError('Connect CAN first')
 
-    def target(self):return self.hw.get_value_as_int()
+    def target(self):return (self.hw.get_value_as_int(),self.target_index.get_value_as_int())
 
     def settings(self):return [self.index.get_value_as_int(),self.sensor.get_active(),self.module_rate.get_active(),int(self.standard.get_active())+2*int(self.diag.get_active())]
 
@@ -21,7 +21,7 @@ class Actions:
 
     def save_config(self):
         hw=self.target();cfg=self.settings()
-        if self.confirm('Save configuration permanently and verify readback? Hardware ID must be unique. Check sensor compatibility. Bitrate changes apply after restart; restart after changing sensor type.'):
+        if self.confirm('Save configuration permanently and verify readback? Hardware ID and target data index must identify one module. Check sensor compatibility. Bitrate changes apply after restart; restart after changing sensor type.'):
             self.work(lambda:self.service.apply(hw,cfg),lambda r:self.result(hw,r))
 
     def save_backup(self):
@@ -29,7 +29,7 @@ class Actions:
         try:
             self.require_link();self.service.require(hw)
             if hw not in self.configs:raise ValueError('Detect / read F0 first')
-            cfg,trim,_=self.configs[hw];data=self.core.backup(hw,cfg,trim)
+            cfg,trim,_=self.configs[hw];data=self.core.backup(hw[0],cfg,trim)
             path=self.choose('Save verified F0 backup',True,'wideband-f0.wbf')
             if path:Path(path).write_bytes(data);self.note('Verified configuration/Rtrim backup saved with CRC.')
         except Exception as e:self.error(str(e))
@@ -70,8 +70,8 @@ class Actions:
     def legacy(self,kind):
         hw=self.target();value=self.settings()[{1:0,2:1,3:2}[kind]]
         def run():
-            ident={1:INDEX,2:SENSOR,3:BITRATE}[kind];data=bytes((value,hw)) if kind==1 else bytes((hw,value))
-            self.link.exchange((ident,True,data),lambda f:f[1] and ((kind==3 and f[0]==BITRATE+1 and f[2]==bytes((hw,value))) or (kind!=3 and f[0]==ACK and not f[2])))
+            ident={1:INDEX,2:SENSOR,3:BITRATE}[kind];data=bytes((value,hw[0])) if kind==1 else bytes((hw[0],value))
+            self.link.exchange((ident,True,data),lambda f:f[1] and ((kind==3 and f[0]==BITRATE+1 and f[2]==bytes((hw[0],value))) or (kind!=3 and f[0]==ACK and not f[2])))
         if self.confirm('Write legacy setting permanently? Hardware ID must be unique. Legacy ACKs have no sender ID or readback. Do not use other configuration tools concurrently.'):
             self.work(run,lambda _:self.note('Legacy command acknowledged; no configuration readback. Bitrate changes require reset.'))
 
@@ -82,7 +82,7 @@ class Actions:
             data=Path(path).read_bytes();hw=self.target()
             if not self.core.valid_image(data):raise ValueError('Invalid F0 app image: expected 25600 bytes, vectors at 0x08001800 and matching CRC. Full/bootloader images rejected.')
             if self.confirm('Update F0 application? Connect exactly ONE compatible module to the bus. Bootloader commands are broadcast. Application will be erased and replaced. Keep power stable.'):
-                self.flash_work(lambda:self.service.flash(hw,data,lambda x:self.bridge.progress.emit(x)),lambda _:self.note('Image transferred and restart acknowledged. Check Pong/live data; protocol has no flash readback.'))
+                self.flash_work(lambda:self.service.flash(hw[0],data,lambda x:self.bridge.progress.emit(x)),lambda _:self.note('Image transferred and restart acknowledged. Check Pong/live data; protocol has no flash readback.'))
         except Exception as e:self.error(str(e))
 
     def stop_heat(self):

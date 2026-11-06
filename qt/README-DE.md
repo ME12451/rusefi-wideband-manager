@@ -1,4 +1,6 @@
-# rusEFI Wideband Manager 0.6 – Windows und Linux
+> Update 0.6.1: Die Konfiguration benötigt die indexbasierte F0-Manager-Firmware ab 0.5.3. Hardware-ID und Ziel-Messindex wählen die aktuelle Moduladresse. Messindex wählt Graph und vorgeschlagenen neuen Index. Vor Änderungen lesen. Bestätigte Indexänderungen werden an der neuen Adresse zurückgelesen. Zielwechsel löschen Einstellungszwischenspeicher, Rtrim-Eingabe und Diagnose. Hardware-ID und Index müssen zusammen eindeutig sein. Kein Rückfall auf das ältere Konfigurationsprotokoll. Firmware unverändert gegenüber 0.5.3; die nachstehenden ausdrücklich auf 0.6 bezogenen Angaben sind historisch.
+
+# rusEFI Wideband Manager 0.6.1 – Windows und Linux
 
 Version 0.6 verwendet erstmals dieselbe Qt/PySide6-Oberfläche und dieselben Konfigurations-, Diagnose-, Backup- und Updateabläufe unter Windows und Linux. Der bisherige C-Kern für Protokoll, Messwertauswertung, Graph-Skalierung, CRC und Backupformat bleibt erhalten. Die Modulfirmware ist unverändert.
 

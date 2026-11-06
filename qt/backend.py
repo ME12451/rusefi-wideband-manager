@@ -9,7 +9,7 @@ import time
 
 ACK=0x727573
 ENTER,ERASE,DATA,REBOOT,INDEX,STATUS,PING,SENSOR,BITRATE=(0x0ef00000,0x0ef15a5a,0x0ef20000,0x0ef30000,0x0ef40000,0x0ef50000,0x0ef60000,0x0ef70000,0x0ef80000)
-REQUEST,REPLY=0x0efb0000,0x0efc0000
+REQUEST,REPLY=0x0efd0000,0x0efe0000
 INFO,CONFIG,APPLY,DEFAULTS,IDENTIFY,RESET,DIAG1,DIAG2,RGET,RSET=range(1,11)
 SENSORS=['LSU 4.9','LSU 4.2','LSU ADV','FAE LSU 4.9','LSU 4.9 Rtrim SW']
 STATES=['Preheat','Warmup','Closed loop','Heater fault','Overtemperature','Undertemperature','Heating disabled','CAN silent']
@@ -94,11 +94,12 @@ class Link:
 class Service:
     def __init__(self,link):self.link=link;self.transaction=0;self.known={}
     def request(self,op,hw,args=b''):
-        if not 0<=hw<=8:raise ValueError('Hardware ID must be 0..8 and unique on the bus')
+        hardware,index=hw
+        if not 0<=hardware<=8 or not 0<=index<=255:raise ValueError('Select Hardware ID 0..8 and target data index 0..255')
         self.transaction=(self.transaction+1)&255;t=self.transaction
-        payload=bytes((op,hw,t))+bytes(args).ljust(5,b'\0')
+        payload=bytes((op,hardware,t))+bytes(args).ljust(5,b'\0')
         if len(payload)!=8:raise ValueError('Invalid service payload')
-        _,_,data=self.link.exchange((REQUEST,True,payload),lambda f:f[1] and f[0]==REPLY|hw and len(f[2])==8 and f[2][:2]==bytes((op,t)))
+        _,_,data=self.link.exchange((REQUEST|(hardware<<8)|index,True,payload),lambda f:f[1] and f[0]==REPLY|(hardware<<8)|index and len(f[2])==8 and f[2][:2]==bytes((op,t)))
         if data[2]:
             self.known.pop(hw,None)
             raise OSError('F0 rejected command: '+{1:'invalid request',2:'flash error',3:'bootloader required',4:'unsupported'}.get(data[2],str(data[2])))
@@ -106,14 +107,17 @@ class Service:
     def detect(self,hw):
         self.known.pop(hw,None)
         info=self.request(INFO,hw)
-        if info!=bytes((0xf0,1,0x7f,0,1)):raise ValueError('Incompatible board or CAN service protocol')
+        if info!=bytes((0xf0,2,0x7f,0,1)):raise ValueError('Incompatible board or CAN service protocol')
         self.known[hw]=True
         try:return self.read(hw)
-        except Exception:self.known.pop(hw,None);raise
+        except Exception:
+            self.known.clear()
+            raise
     def require(self,hw):
         if not self.known.get(hw):raise ValueError('Detect / read F0 first')
     def read(self,hw):
         cfg=self.request(CONFIG,hw);trim=self.request(RGET,hw)
+        if cfg[0]!=hw[1]:raise ValueError('Configuration target index differs from readback')
         if cfg[1]>4 or cfg[2]>1 or cfg[3]>3 or cfg[4]>1:raise ValueError('Invalid configuration response')
         resistance=int.from_bytes(trim[:2],'little')
         if trim[2]>4 or trim[3]>1 or not (resistance==0 or 3000<=resistance<=30000):raise ValueError('Invalid Rtrim response')
@@ -125,10 +129,13 @@ class Service:
         try:
             reply=self.request(APPLY,hw,bytes(cfg)+b'\xa5')
             if reply[:4]!=bytes(cfg):raise ValueError('Configuration ACK differs from request')
-            result=self.read(hw)
+            new=(hw[0],cfg[0]);self.known.pop(hw,None);self.known[new]=True
+            result=self.read(new)
             if result[0][:4]!=cfg:raise ValueError('Configuration readback mismatch')
             return result
-        except Exception:self.known.pop(hw,None);raise
+        except Exception:
+            self.known.clear()
+            raise
     def rtrim(self,hw,value,sensor):
         self.require(hw)
         if not (value==0 or 3000<=value<=30000) or sensor not in (0,4) or (sensor==4 and value==0):raise ValueError('Invalid Bosch Rtrim setting')
@@ -139,7 +146,9 @@ class Service:
             result=self.read(hw)
             if result[1]!=value or result[0][1]!=sensor:raise ValueError('Rtrim readback mismatch')
             return result
-        except Exception:self.known.pop(hw,None);raise
+        except Exception:
+            self.known.clear()
+            raise
     def restore(self,hw,cfg,trim):
         self.require(hw)
         try:
@@ -154,14 +163,20 @@ class Service:
             result=self.apply(hw,cfg)
             if result[1]!=trim:raise ValueError('Restore verification failed')
             return result
-        except Exception:self.known.pop(hw,None);raise
+        except Exception:
+            self.known.clear()
+            raise
     def defaults(self,hw):
         self.require(hw)
         try:
-            ack=self.request(DEFAULTS,hw,b'\xa5');result=self.read(hw)
+            ack=self.request(DEFAULTS,hw,b'\xa5')
+            new=(hw[0],ack[0]);self.known.pop(hw,None);self.known[new]=True
+            result=self.read(new)
             if result[0][:4]!=list(ack[:4]):raise ValueError('Factory defaults readback mismatch')
             return result
-        except Exception:self.known.pop(hw,None);raise
+        except Exception:
+            self.known.clear()
+            raise
     def flash(self,hw,image,progress):
         if not 0<=hw<=8:raise ValueError('Hardware ID must be 0..8')
         if not Core().valid_image(image):raise ValueError('Invalid F0 application image: size, vectors or CRC')

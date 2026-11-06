@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""rusEFI Wideband Manager 0.6: one Qt application for Windows and Linux."""
+"""rusEFI Wideband Manager 0.6.1: one Qt application for Windows and Linux."""
 import argparse
 import collections
 import csv
@@ -54,11 +54,11 @@ class Manager(QMainWindow,Actions):
         self.settings=QSettings(args.settings_file,QSettings.Format.IniFormat) if args.settings_file else QSettings('rusEFI','WidebandManager06')
         self.i18n=I18n(QApplication.instance(),args.language or self.settings.value('language','en'));self.tr=self.i18n.text
         self.bridge=Bridge();self.bridge.finished.connect(self.finish_work);self.bridge.progress.connect(self.set_progress);self.done_callback=None;self.operation_is_flash=False
-        self.setWindowTitle('rusEFI Wideband Manager 0.6');self.resize(1540,1040);self.setMinimumSize(1160,760)
+        self.setWindowTitle('rusEFI Wideband Manager 0.6.1');self.resize(1540,1040);self.setMinimumSize(1160,760)
         root=QWidget();self.setCentralWidget(root);outer=QVBoxLayout(root);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
         header=QWidget();header.setObjectName('Header');hr=QHBoxLayout(header);hr.setContentsMargins(22,14,22,14);outer.addWidget(header)
         brand=QLabel('rusEFI  /  WIDEBAND');brand.setObjectName('Brand');hr.addWidget(brand)
-        subtitle=self.label('CAN diagnostics & configuration');subtitle.setMinimumWidth(325);hr.addWidget(subtitle);hr.addWidget(QLabel('0.6'));hr.addStretch()
+        subtitle=self.label('CAN diagnostics & configuration');subtitle.setMinimumWidth(325);hr.addWidget(subtitle);hr.addWidget(QLabel('0.6.1'));hr.addStretch()
         self.badge=QLabel();hr.addWidget(self.badge);hr.addSpacing(18);hr.addWidget(self.label('Language'))
         self.language=QComboBox();self.language.setObjectName('Language');self.language.addItem('English','en');self.language.addItem('Deutsch','de');self.language.setCurrentIndex(1 if self.i18n.language=='de' else 0);hr.addWidget(self.language)
         self.language.currentIndexChanged.connect(self.language_changed)
@@ -76,8 +76,10 @@ class Manager(QMainWindow,Actions):
         side.addSpacing(6);section=self.label('Module / settings');section.setObjectName('Section');side.addWidget(section)
         grid=QGridLayout();side.addLayout(grid);self.hw=Spin();self.hw.setRange(0,8);self.hw.setValue(4);self.index=Spin();self.index.setRange(0,255)
         grid.addWidget(self.label('Hardware ID'),0,0);grid.addWidget(self.label('Data index'),0,1);grid.addWidget(self.hw,1,0);grid.addWidget(self.index,1,1)
-        self.hw.valueChanged.connect(self.render_report)
-        side.addWidget(self.label('Hardware ID is mapped to data index only after reading configuration.'))
+        self.target_index=Spin();self.target_index.setRange(0,255)
+        self.field(side,'Target data index',self.target_index)
+        self.hw.valueChanged.connect(self.target_changed);self.target_index.valueChanged.connect(self.target_changed)
+        side.addWidget(self.label('Target data index addresses the current module. Data index selects the graph and the proposed new index.'))
         self.action(side,'Detect / read F0',self.detect)
         self.sensor=Combo();self.sensor.addItems(SENSORS);self.field(side,'Sensor type',self.sensor)
         self.module_rate=Combo();self.module_rate.addItems(['500 kbit/s','1 Mbit/s']);self.field(side,'Module bitrate after reset',self.module_rate)
@@ -215,23 +217,29 @@ class Manager(QMainWindow,Actions):
         else:self.note('CAN operation completed.')
     def set_progress(self,value):self.progress.set_fraction(value)
     def result(self,hw,result):
-        self.configs[hw]=result;cfg,trim,_=result
+        cfg,trim,_=result;new=(hw[0],cfg[0]);self.configs.pop(hw,None);self.configs[new]=result
+        self.target_index.blockSignals(True);self.target_index.setValue(cfg[0]);self.target_index.blockSignals(False);self.extra=None;self.render_extra()
         self.index.setValue(cfg[0]);self.sensor.setCurrentIndex(cfg[1]);self.module_rate.setCurrentIndex(cfg[2]);self.standard.setChecked(bool(cfg[3]&1));self.diag.setChecked(bool(cfg[3]&2));self.trim.setText(f'{trim/100:.2f}');self.active_indices.add(cfg[0]);self.render_report();self.note('F0 configuration and Rtrim read and verified. Bitrate changes require a restart.')
     def summary(self,hw,result):
         cfg,trim,ready=result;t=self.tr
         return '\n'.join((t('F0 HW {hw} / data index {index} / CAN {first:03X}, {second:03X}',hw=hw,index=cfg[0],first=0x190+2*cfg[0],second=0x191+2*cfg[0]),t('Sensor: {sensor}',sensor=SENSORS[cfg[1]]),t('Saved bitrate: {saved} kbit/s / active: {active} kbit/s',saved=[500,1000][cfg[2]],active=[500,1000][cfg[4]]),t('TX flags: {flags} / Rtrim: {trim:.2f} Ohm / calibration: {ready}',flags=cfg[3],trim=trim/100,ready=t('ready' if ready else 'not ready'))))
+    def target_changed(self,*_):
+        self.configs.clear()
+        if self.service:self.service.known.clear()
+        if hasattr(self,'trim'):self.trim.clear()
+        self.extra=None;self.render_report();self.render_extra()
     def render_report(self,*_):
         if not hasattr(self,'report'):return
-        hw=self.hw.value()
-        if hw in self.configs:text=self.summary(hw,self.configs[hw])
-        else:text='\n'.join(self.tr(key) for key in ('Detect / read F0 to load configuration and selectable Rtrim.','Hardware ID must be unique on the CAN bus.','Extended service features require compatible F0 Manager firmware 0.4.','No module configuration has been read yet.'))
+        hw=self.target()
+        if hw in self.configs:text=self.summary(hw[0],self.configs[hw])
+        else:text='\n'.join(self.tr(key) for key in ('Detect / read F0 to load configuration and selectable Rtrim.','Hardware ID and target data index must be unique together on the CAN bus.','Configuration requires indexed F0 Manager firmware 0.5.3 or newer.','No module configuration has been read yet.'))
         self.report.setPlainText(text)
     def restore_backup(self):
         path=self.choose('Load F0 backup')
         if not path:return
         try:
             data=Path(path).read_bytes();cfg,trim=self.core.restore(data);hw=self.target();old=self.configs.get(hw)
-            text=self.tr('Backup source HW {source}, target HW {target}',source=data[6],target=hw)+'\n'+self.tr('Backup: index {index}, sensor {sensor}, bitrate {rate} kbit/s, TX {flags}, Rtrim {trim:.2f} Ohm',index=cfg[0],sensor=SENSORS[cfg[1]],rate=[500,1000][cfg[2]],flags=cfg[3],trim=trim/100)+'\n'+self.tr('Current: {current}',current=self.summary(hw,old) if old else self.tr('Unknown'))+'\n\n'+self.tr('Restore all settings? Sensor and hardware must match. Two verified writes; errors may leave partial changes. Do not interrupt power.')
+            text=self.tr('Backup source HW {source}, target HW {target}',source=data[6],target=hw[0])+'\n'+self.tr('Backup: index {index}, sensor {sensor}, bitrate {rate} kbit/s, TX {flags}, Rtrim {trim:.2f} Ohm',index=cfg[0],sensor=SENSORS[cfg[1]],rate=[500,1000][cfg[2]],flags=cfg[3],trim=trim/100)+'\n'+self.tr('Current: {current}',current=self.summary(hw[0],old) if old else self.tr('Unknown'))+'\n\n'+self.tr('Restore all settings? Sensor and hardware must match. Two verified writes; errors may leave partial changes. Do not interrupt power.')
             if self.confirm(text):self.work(lambda:self.service.restore(hw,cfg,trim),lambda r:self.result(hw,r))
         except Exception as e:self.error(str(e))
     def extended(self):
@@ -242,8 +250,10 @@ class Manager(QMainWindow,Actions):
     def render_extra(self):
         if not hasattr(self,'ext_report'):return
         if not self.extra:self.ext_report.setText(self.tr('No extended diagnostic snapshot read.'));return
-        hw,(a,b)=self.extra;ac,target,state=struct.unpack('<HhB',a);current,voltage,supply=struct.unpack('<hHB',b)
-        self.ext_report.setText(self.tr('CAN snapshot / HW {hw}: Nernst AC {ac:.3f} V; pump target {target:.3f} mA; measured {current:.3f} mA; effective heater {voltage:.3f} V; supply over CAN {supply:.1f} V; heater state {state}.',hw=hw,ac=ac/1000,target=target/1000,current=current/1000,voltage=voltage/1000,supply=supply/10,state=state))
+        hw,(a,b)=self.extra
+        if hw!=self.target():self.ext_report.setText(self.tr('No extended diagnostic snapshot read.'));return
+        ac,target,state=struct.unpack('<HhB',a);current,voltage,supply=struct.unpack('<hHB',b)
+        self.ext_report.setText(self.tr('CAN snapshot / HW {hw}: Nernst AC {ac:.3f} V; pump target {target:.3f} mA; measured {current:.3f} mA; effective heater {voltage:.3f} V; supply over CAN {supply:.1f} V; heater state {state}.',hw=hw[0],ac=ac/1000,target=target/1000,current=current/1000,voltage=voltage/1000,supply=supply/10,state=state))
     def event_name(self,code):return self.tr(STATES[code] if code<8 else {100:'WARNING: data lost',101:'Data restored',102:'WARNING: invalid lambda in closed loop'}.get(code,'Unknown'))
     def fill_table(self,table,rows):
         table.setRowCount(len(rows))
@@ -319,7 +329,7 @@ QCheckBox {spacing:6px;} QScrollArea {border:0;background:transparent;}
 '''
 
 def main():
-    parser=argparse.ArgumentParser(description='rusEFI Wideband Manager 0.6 - Windows/Linux Qt CAN client')
+    parser=argparse.ArgumentParser(description='rusEFI Wideband Manager 0.6.1 - Windows/Linux Qt CAN client')
     parser.add_argument('--demo',action='store_true');parser.add_argument('--language',choices=('de','en'))
     parser.add_argument('--settings-file',help=argparse.SUPPRESS);parser.add_argument('--smoke-test',help=argparse.SUPPRESS)
     args=parser.parse_args();app=QApplication(sys.argv[:1]);app.setStyle('Fusion');app.setStyleSheet(STYLE);app.setOrganizationName('rusEFI');app.setApplicationName('WidebandManager06')
