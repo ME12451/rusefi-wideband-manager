@@ -1,7 +1,0 @@
-test_all_static_ui_and_backend_errors_translated (__main__.CatalogTests.test_all_static_ui_and_backend_errors_translated) ... ok
-test_placeholders_match (__main__.CatalogTests.test_placeholders_match) ... ok
-
-----------------------------------------------------------------------
-Ran 2 tests in 0.064s
-
-OK

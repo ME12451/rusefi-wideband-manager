@@ -1,4 +1,4 @@
-# rusEFI Wideband Manager 0.5 — Linux x86_64 — English
+# rusEFI Wideband Manager 0.5.3 — Linux x86_64 — English
 
 Native GTK application with a shared C protocol/analytics library. No Wine, Windows DLL, browser or web server is used. This package includes the executable launcher `wideband-manager`, Python UI/backend source, and a prebuilt x86_64 `libwideband.so`.
 
@@ -67,7 +67,7 @@ References: [Linux SocketCAN documentation](https://docs.kernel.org/networking/c
 
 The application samples up to 10 Hz into the shared 3000-point ring per index. All graph times are PC elapsed time, not module uptime. Graph pause retains a PC snapshot while reception continues. Standard A0 broadcasts provide lambda/temperature; diagnostic broadcasts provide heater/pump/Nernst/ESR. Enable diagnostic TX for those curves. Stale/invalid data creates gaps rather than a valid continuous line. Warmup times are observations during this session, not measurements stored in the module. Events and CAN statistics are bounded session histories, not controller error counters or a hardware bus-load meter.
 
-Only one configuration/update operation runs at a time. Replies are matched by hardware ID, opcode and transaction number. Hardware IDs must be unique on the bus; duplicates cannot be reliably distinguished. Configuration readback is required before extended writes. A failed write or restore may leave partial changes; read settings again. A restore of a non-Bosch sensor backup temporarily uses normal Bosch mode to restore the Rtrim record, then applies and verifies the final sensor/configuration in a second write. Perform configuration on a bench, not during engine tuning.
+Only one configuration/update operation runs at a time. Replies are matched by hardware ID, current target data index, opcode and transaction number. Hardware ID plus index must identify exactly one module. Two modules may share a hardware ID when their indices differ. Legacy writes still require a unique hardware ID. Configuration readback is required before extended writes. A failed write or restore may leave partial changes; read settings again. A restore of a non-Bosch sensor backup temporarily uses normal Bosch mode to restore the Rtrim record, then applies and verifies the final sensor/configuration in a second write. Perform configuration on a bench, not during engine tuning.
 
 For software Rtrim, enter your own sensor's labeled value, 30.00..300.00 Ohm. Do not guess. The physical trim resistor must be absent in software mode; hardware and selected mode must match.
 
@@ -75,15 +75,15 @@ Firmware updates are bootloader broadcasts: connect exactly one compatible F0 mo
 
 ## Firmware unchanged
 
-No new firmware is included or built for this Linux release. The live graph works from regular CAN messages. Extended configuration functions require the same compatible F0 Manager firmware 0.4 as the Windows version. Existing application SHA256:
+No new firmware is included or built for this Linux release. The live graph works from regular CAN messages. Extended configuration functions require indexed F0 Manager firmware 0.5.3 or newer, matching native Windows 0.5.3. Target data index selects the current module address. Data index selects the graph and proposed new index. Read before writing. After an index change the old address acknowledges the write, then the new address is read back. Changing target clears configuration/Rtrim caches, editable Rtrim and diagnostic snapshots. There is no fallback to HW-only configuration on timeout. Existing application SHA256:
 
-`9f03e1734c03e658f9715469c975fd756b23b80628ad8ae24b46cbee34855cd3`
+`115fdf2327c34ee9c6c4a42efd5959679e707484614573c498f71ea976b8750c`
 
 ## Validation
 
-Shared C library builds with warnings as errors. Existing portable protocol/analytics/trace tests pass with AddressSanitizer/UndefinedBehaviorSanitizer. Linux client tests run against the actual F0 dispatcher and configuration functions with a fake HAL: detect/read, write/readback, Rtrim, backup/restore including non-Bosch mode, defaults, identification, diagnostic decoding, wrong replies, flash errors and no write retry. Additional tests cover CRC rejection, actual C analytics, SocketCAN frame packing/filtering over a local socket pair, SLCAN acknowledgement/framing and BEL errors through a pseudo terminal, firmware image preflight and complete bootloader transfer/failure flow against a simulated bootloader.
+Shared C library builds with warnings as errors. Existing portable protocol/analytics/trace tests pass with AddressSanitizer/UndefinedBehaviorSanitizer. Linux client tests run against the actual F0 dispatcher and configuration functions with a fake HAL: two modules sharing one HW ID, isolated Rtrim, index changes and routing, detect/read, write/readback, backup/restore including non-Bosch mode, defaults, identification, diagnostic decoding, wrong replies, flash errors and timeout without retry or legacy fallback. Additional tests cover CRC rejection, actual C analytics, SocketCAN frame packing/filtering over a local socket pair, SLCAN acknowledgement/framing and BEL errors through a pseudo terminal, firmware image preflight and complete bootloader transfer/failure flow against a simulated bootloader.
 
-GTK GUI smoke tests cover rendering, demo transmission locks, six trace switches, paused CSV consistency, history panning, time-window selection, auto scales, index changes, tools page, smaller-window layout and disconnected startup. These are software tests. **No physical CAN adapter/module, real SocketCAN interface routing, physical flashing or native Wayland tests have been performed.** No approval for engine operation follows from these results. Test logs are included.
+GTK GUI smoke tests cover rendering, demo transmission locks, six trace switches, paused CSV consistency, history panning, time-window selection, auto scales, index changes, tools page, smaller-window layout, disconnected startup, following the confirmed new target and clearing configuration/trim/diagnostic snapshots after a target change. These are software tests. **No physical CAN adapter/module, real SocketCAN interface routing, physical flashing or native Wayland tests have been performed.** No approval for engine operation follows from these results. Test logs are included.
 
 ## Source and rebuild
 

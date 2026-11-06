@@ -1,0 +1,3 @@
+GTK GUI smoke passed: demo safety, six traces, paused CSV, history, time windows, scales and index switch
+GTK tools tab and smaller window rendering passed.
+GTK GUI smoke passed: normal disconnected startup; no synthetic data

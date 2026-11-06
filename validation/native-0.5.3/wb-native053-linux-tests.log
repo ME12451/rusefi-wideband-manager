@@ -1,12 +1,12 @@
-test_python_can_virtual_transport_and_configuration (__main__.AdapterTests.test_python_can_virtual_transport_and_configuration) ... ok
 test_actual_f0_read_write_rtrim_restore_defaults (__main__.Tests.test_actual_f0_read_write_rtrim_restore_defaults) ... ok
 test_backup_crc_and_actual_analytics (__main__.Tests.test_backup_crc_and_actual_analytics) ... ok
 test_firmware_preflight_and_transfer_failure (__main__.Tests.test_firmware_preflight_and_transfer_failure) ... ok
 test_flash_failure_no_retry_and_wrong_rtrim (__main__.Tests.test_flash_failure_no_retry_and_wrong_rtrim) ... ok
 test_slcan_pseudo_terminal (__main__.Tests.test_slcan_pseudo_terminal) ... ok
+test_socketcan_kernel_frame_format (__main__.Tests.test_socketcan_kernel_frame_format) ... ok
 test_two_same_hw_modules_isolate_trim_index_and_restore (__main__.Tests.test_two_same_hw_modules_isolate_trim_index_and_restore) ... ok
 
 ----------------------------------------------------------------------
-Ran 7 tests in 3.453s
+Ran 7 tests in 3.180s
 
 OK

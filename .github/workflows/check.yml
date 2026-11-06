@@ -1,18 +1,13 @@
-name: Source checks
+name: Native source checks
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
-  core-and-client:
+  protocol-and-linux-client:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install python-can==4.6.1 pyserial==3.5
-      - run: bash qt/build_core.sh
+      - run: bash linux/build.sh
       - run: bash tests/run_desktop.sh
-      - run: python tests/test_qt_backend.py
-      - run: python tests/test_qt_i18n.py
-      - run: python tests/test_indexed_service.py
+      - run: python3 tests/test_linux.py
+      - run: python3 tests/test_indexed_service.py

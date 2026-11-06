@@ -1,53 +1,49 @@
-# rusEFI Wideband Manager
+# rusEFI Wideband Manager — separate lightweight applications
 
-CAN configuration and diagnostics for rusEFI F0 wideband modules on Windows and Linux. The current shared Qt application is **0.6.1**, in English and German. It includes the indexed configuration workflow from the native Windows Manager 0.5.3.
+Two independent applications configure rusEFI F0 wideband modules over CAN:
 
-## Releases and history
+| Platform | Current version | Implementation | Runtime |
+| --- | --- | --- | --- |
+| Windows x64 | 0.5.3 | Native Win32 C application in `src/` | Small EXE; no Python/Qt/.NET bundle |
+| Linux | 0.5.3 | GTK3 application in `linux/`, small shared C library | System Python 3, GTK3/PyGObject/Cairo |
 
-- `v0.1.0`: original Windows Manager sources recovered from the existing 0.1 release archive.
-- `v0.6.0`: preserved shared Qt 0.6 sources plus native Windows 0.5.3 development sources.
-- `v0.6.1`: shared Windows/Linux manager with indexed module configuration.
+Download the separate Windows ZIP or Linux tar.gz from [Releases](https://github.com/ME12451/rusefi-wideband-manager/releases/tag/v0.5.3). The applications share protocol/analytics headers but retain their existing platform interfaces and adapter implementations. The Qt 0.6 line has been discarded and its release downloads/tags withdrawn.
 
-These are imports of preserved snapshots, not a reconstruction of intermediate development commits. Historical source manifests describe their original release snapshots. Original sources and archives remain unchanged in the development workspace. Native Windows 0.5.3 remains in `src/`; the current shared application lives in `qt/`. The older GTK application in `linux/` and packaging scripts for older versions are historical.
+## Windows
 
-## Download and operate
+Extract the complete Windows archive and run `rusEFI-Wideband-Manager.exe`. PCAN requires the PEAK driver and 64-bit PCANBasic DLL. SLCAN uses a local COM port. The preserved, software-tested native 0.5.3 executable and firmware package are unchanged.
 
-Download Windows x64 ZIP or Linux x86_64 tar.gz from Releases, extract the whole archive and launch the manager. Python and Qt are bundled. The Linux binary requires **glibc 2.43 or newer**; rebuild from source for older distributions. Windows supports PCAN and SLCAN; Linux supports SocketCAN and SLCAN. Set SocketCAN bitrate outside the application.
+[Windows 0.5.3 guide and protocol changes](RELEASE-0.5.3.md). Build with MinGW-w64: `bash build.sh` (`CC_WINDOWS` selects the compiler, `OUT_DIR` selects the output directory).
 
-Configuration now requires indexed F0 Manager firmware **0.5.3 or newer** from [ME12451/wideband](https://github.com/ME12451/wideband/tree/manager-latest). The minimal [wideband-selectable](https://github.com/ME12451/wideband/tree/wideband-selectable) branch only adds persisted CAN bitrate selection and does not provide the extended Manager configuration service. Firmware updates connect exactly one module. No firmware change is required when updating from native Manager 0.5.3.
+## Linux
 
-Choose Hardware ID and **Target data index** to address the module's current configuration. **Data index** selects the graph and proposed new index when saving settings. Read before writing. A confirmed index change moves the target and verifies readback at the new address. Changing the target clears cached settings, editable Rtrim and diagnostics. Two modules must not share both HW ID and index. Older legacy commands still require a unique HW ID.
-
-See [English guide](qt/README-EN.md), [German guide](qt/README-DE.md), and [0.6.1 changes](RELEASE-0.6.1.md).
-
-## Run from source
+Extract the complete Linux archive and run `./wideband-manager`. Uses SocketCAN or direct SLCAN; no Windows DLL or bundled GUI runtime. Install distribution packages once:
 
 ```sh
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r qt/requirements.txt
-bash qt/build_core.sh
-python qt/main.py
+sudo apt install python3 python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0
 ```
 
-`--demo` simulates values and blocks CAN transmissions. C library build requires a C compiler; Windows can build the DLL with `CC_WINDOWS=x86_64-w64-mingw32-gcc bash qt/build_core.sh`. Build native Windows without Qt using `bash build.sh`.
+The Linux application now includes the latest indexed configuration functionality from Windows 0.5.3, retaining its GTK interface. See the [Linux guide](linux/README.md). Rebuild its C library with `bash linux/build.sh`; launch `linux/wideband-manager` from source. `--demo` blocks CAN transmissions and supplies labeled simulated data.
 
-Linux packaging: install PyInstaller 6.19.0, then `python qt/build_linux.py`. If XCB libraries are outside standard system paths, set `WB_QT_XCB_LIB_DIR` to their directory; the release bundles the five optional XCB image/keysyms/ICCCM/cursor/render-util libraries. Windows packaging: `python qt/build_windows.py --python-zip <official-embeddable-python.zip> --wheels <pinned-wheel-directory> --output <output-directory>`. See each script's options.
+## Module configuration
 
-Firmware sources are mirrored under `firmware-f0/`. Fetch pinned dependencies with `bash prepare-firmware-deps.sh` (or set `WIDEBAND_DEP_SOURCE` to an existing matching wideband clone), provide ARM GNU 14.3.Rel1 through `ARM_TOOLCHAIN`, then run `bash build-firmware.sh`. The firmware repository is the canonical source. Release firmware is attached there; generated images and dependency checkouts are excluded here.
+Both applications address extended configuration by **hardware ID plus current target data index**. Two modules with the same HW ID need different indices. Read before writing. Data index selects the live stream and proposed new index; Target data index selects the current module address. Confirmed index changes follow the new address and verify readback. Switching targets invalidates cached settings, trim and diagnostics. Firmware updates still connect exactly one module. Legacy commands require unique HW IDs.
 
-## Validation
+Indexed configuration requires [F0 Manager firmware 0.5.3](https://github.com/ME12451/wideband/releases/tag/manager-f0-0.5.3). The separate [minimal Selectable firmware](https://github.com/ME12451/wideband/releases/tag/selectable-f0-2026-10-25) only adds persisted bitrate selection. This desktop update does not change firmware.
+
+## History and validation
+
+`v0.1.0` preserves the original Windows 0.1 sources and archive. `v0.5.3` contains the latest native Windows sources and updated separate Linux application. These are imports of preserved release snapshots; intermediate development commits were not reconstructed. Historical source manifests refer to their original snapshots. The abandoned Qt work remains only in prior Git commits, with no active release or tag.
 
 ```sh
-bash qt/build_core.sh
-python tests/test_qt_backend.py
-python tests/test_qt_i18n.py
-python tests/test_indexed_service.py
+bash linux/build.sh
+python3 tests/test_linux.py
+python3 tests/test_indexed_service.py
 bash tests/run_desktop.sh
 ```
 
-Backend tests run the actual F0 C++ dispatcher with a fake HAL, including two modules with one HW ID, independent Rtrim, index changes, backup/restore, rejection of wrong replies and no automatic retry. Full `tests/run.sh` also requires a firmware build. GUI smoke tests run with `python qt/main.py --demo --settings-file /tmp/wb-test.ini --smoke-test /tmp/wb-smoke`.
+Backend tests use actual F0 C++ dispatcher/configuration code with a fake HAL and two same-HW simulated nodes. Linux GUI tests use GTK/Xvfb; Windows GUI evidence uses Wine. CI checks native protocol/client code. See `validation/native-0.5.3`. No physical CAN module/adapter tests have been performed.
 
-No physical module/CAN-adapter tests have been performed. Windows GUI validation uses Wine; Linux uses a virtual display. Firmware binary date fields and CRC can change on rebuild.
+Firmware sources are mirrored under `firmware-f0/`; canonical development lives in [ME12451/wideband](https://github.com/ME12451/wideband). Fetch pinned dependencies with `bash prepare-firmware-deps.sh` or set `WIDEBAND_DEP_SOURCE` to a matching local clone. Provide ARM GNU 14.3.Rel1 using `ARM_TOOLCHAIN`, then run `bash build-firmware.sh`.
 
-Project source license: [MIT](LICENSE). Bundled dependencies retain their licenses; see [third-party notices](qt/licenses/THIRD-PARTY-NOTICES.md).
+Source license: [MIT](LICENSE). System GTK/Python libraries and PCAN drivers retain their respective licenses.

@@ -157,7 +157,7 @@ class Graph(Gtk.Box):
 
 class Manager(Gtk.Window):
     def __init__(self,demo=False,smoke=None):
-        super().__init__(title='rusEFI Wideband Manager 0.5 - Linux')
+        super().__init__(title='rusEFI Wideband Manager 0.5.3 - Linux')
         settings=Gtk.Settings.get_default();settings.set_property('gtk-application-prefer-dark-theme',False);settings.set_property('gtk-theme-name','Adwaita')
         self.set_default_size(1460,1000);self.set_size_request(1060,760)
         self.demo=demo;self.smoke=smoke;self.smoke_failed=False;self.start=time.monotonic();self.offset=120000 if demo else 0
@@ -169,7 +169,7 @@ class Manager(Gtk.Window):
         outer=box();self.add(outer)
         header=box(False);header.get_style_context().add_class('header');outer.pack_start(header,False,False,0)
         title=label('rusEFI  /  WIDEBAND');title.get_style_context().add_class('title');header.pack_start(title,False,False,0)
-        header.pack_start(label('Linux 0.5 / CAN diagnostics & configuration'),True,True,0)
+        header.pack_start(label('Linux 0.5.3 / CAN diagnostics & configuration'),True,True,0)
         self.badge=label('DEMO / SIMULATED' if demo else 'OFFLINE');header.pack_end(self.badge,False,False,0)
         body=box(False,14);body.set_border_width(12);outer.pack_start(body,True,True,0)
         self.sidebar=box();self.sidebar.set_border_width(10);self.sidebar.set_size_request(300,-1);self.sidebar.get_style_context().add_class('card')
@@ -184,7 +184,10 @@ class Manager(Gtk.Window):
         row=box(False);self.sidebar.pack_start(row,False,False,0)
         self.hw=Gtk.SpinButton.new_with_range(0,8,1);self.hw.set_value(4);self.index=Gtk.SpinButton.new_with_range(0,255,1)
         self.add_field(row,'Hardware ID',self.hw);self.add_field(row,'Data index',self.index)
-        self.sidebar.pack_start(label('Hardware ID is mapped to data index only after a configuration read.'),False,False,0)
+        self.target_index=Gtk.SpinButton.new_with_range(0,255,1)
+        self.add_field(self.sidebar,'Target data index',self.target_index)
+        self.hw.connect('value-changed',self.target_changed);self.target_index.connect('value-changed',self.target_changed)
+        self.sidebar.pack_start(label('Target data index addresses the current module. Data index selects the graph and proposed new index.'),False,False,0)
         self.add_action(self.sidebar,'Detect / read F0',self.detect)
         self.sensor=combo(SENSORS);self.add_field(self.sidebar,'Sensor type',self.sensor)
         self.module_rate=combo(['500 kbit/s','1 Mbit/s']);self.add_field(self.sidebar,'Module bitrate after reset',self.module_rate)
@@ -200,7 +203,7 @@ class Manager(Gtk.Window):
         self.notebook=Gtk.Notebook();self.notebook.set_scrollable(True);right.pack_start(self.notebook,True,True,0)
         self.graph=Graph(self);self.notebook.append_page(self.graph,tab('Live graph'))
         config=box();config.set_border_width(12);self.notebook.append_page(scroll(config),tab('F0 tools / Rtrim'))
-        self.report=textview();write_text(self.report,'Detect / read F0 to load configuration and selectable Rtrim.\nHardware ID must be unique on the CAN bus.\nExtended service features require compatible F0 Manager firmware 0.4.\n'+('DEMO: simulated measurements; all CAN transmission is disabled.' if demo else 'No module configuration has been read yet.'));self.report.set_size_request(-1,120);config.pack_start(scroll(self.report),True,True,0)
+        self.report=textview();write_text(self.report,'Detect / read F0 to load configuration and selectable Rtrim.\nHardware ID and target data index must be unique together on the CAN bus.\nConfiguration requires indexed F0 Manager firmware 0.5.3 or newer.\n'+('DEMO: simulated measurements; all CAN transmission is disabled.' if demo else 'No module configuration has been read yet.'));self.report.set_size_request(-1,120);config.pack_start(scroll(self.report),True,True,0)
         row=box(False);config.pack_start(row,False,False,0)
         for name,fn in [('Save backup',self.save_backup),('Restore backup',self.restore_backup),('Identify for 10s',self.identify),('Restart',self.restart),('Factory defaults',self.defaults)]:self.add_action(row,name,fn)
         row=box(False);config.pack_start(row,False,False,0);self.trim=Gtk.Entry(text='');self.trim.set_width_chars(8)
@@ -253,11 +256,11 @@ class Manager(Gtk.Window):
     def connect_bus(self):
         if self.demo:return
         if self.link:
-            self.stop_heat();self.link.close();self.link=self.service=None;self.configs.clear();self.note('Disconnected');return
+            self.stop_heat();self.link.close();self.link=self.service=None;self.target_changed();self.note('Disconnected');return
         try:
             cls=SocketCAN if self.transport.get_active()==0 else SLCAN
             self.link=Link(cls(self.endpoint.get_text().strip(),[500000,1000000][self.bitrate.get_active()]));self.service=Service(self.link)
-            self.core.lib.wb_clear();self.configs.clear();self.discovered.clear();self.error_seen=False
+            self.core.lib.wb_clear();self.target_changed();self.discovered.clear();self.error_seen=False
             self.note('Connected - passive CAN reception active')
         except Exception as e:self.error(str(e))
     def require_link(self):
@@ -281,26 +284,34 @@ class Manager(Gtk.Window):
             try:result=fn();GLib.idle_add(finish,result,None)
             except Exception as e:GLib.idle_add(finish,None,str(e))
         threading.Thread(target=run,daemon=True).start()
-    def target(self):return self.hw.get_value_as_int()
+    def target(self):return (self.hw.get_value_as_int(),self.target_index.get_value_as_int())
     def settings(self):return [self.index.get_value_as_int(),self.sensor.get_active(),self.module_rate.get_active(),int(self.standard.get_active())+2*int(self.diag.get_active())]
     def result(self,hw,result):
-        self.configs[hw]=result;cfg,trim,ready=result
+        cfg,trim,ready=result;new=(hw[0],cfg[0]);self.configs.pop(hw,None);self.configs[new]=result
+        self.target_index.handler_block_by_func(self.target_changed);self.target_index.set_value(cfg[0]);self.target_index.handler_unblock_by_func(self.target_changed)
+        self.ext_report.set_text('No extended diagnostic snapshot read.')
         self.index.set_value(cfg[0]);self.sensor.set_active(cfg[1]);self.module_rate.set_active(cfg[2]);self.standard.set_active(bool(cfg[3]&1));self.diag.set_active(bool(cfg[3]&2));self.trim.set_text(f'{trim/100:.2f}')
-        write_text(self.report,f'F0 HW {hw} / data index {cfg[0]} / CAN {0x190+cfg[0]*2:03X}, {0x191+cfg[0]*2:03X}\nSensor: {SENSORS[cfg[1]]}\nSaved bitrate: {[500,1000][cfg[2]]} kbit/s; active: {[500,1000][cfg[4]]} kbit/s\nTX flags: {cfg[3]} / Rtrim: {trim/100:.2f} Ohm / calibration: {"ready" if ready else "not ready"}')
+        write_text(self.report,f'F0 HW {hw[0]} / data index {cfg[0]} / CAN {0x190+cfg[0]*2:03X}, {0x191+cfg[0]*2:03X}\nSensor: {SENSORS[cfg[1]]}\nSaved bitrate: {[500,1000][cfg[2]]} kbit/s; active: {[500,1000][cfg[4]]} kbit/s\nTX flags: {cfg[3]} / Rtrim: {trim/100:.2f} Ohm / calibration: {"ready" if ready else "not ready"}')
         self.note('F0 configuration and Rtrim read and verified. Bitrate changes require a restart.')
+    def target_changed(self,*_):
+        self.configs.clear()
+        if self.service:self.service.known.clear()
+        if hasattr(self,'trim'):self.trim.set_text('')
+        if hasattr(self,'report'):write_text(self.report,'Detect / read F0 first. Hardware ID and target data index must identify one module.')
+        if hasattr(self,'ext_report'):self.ext_report.set_text('No extended diagnostic snapshot read.')
     def detect(self):
         hw=self.target();self.work(lambda:self.service.detect(hw),lambda r:self.result(hw,r))
     def find_modules(self):self.work(lambda:self.link.send((PING,True,b'\xff')))
     def save_config(self):
         hw=self.target();cfg=self.settings()
-        if self.confirm('Save configuration permanently and verify readback? Hardware ID must be unique. Check sensor compatibility. Bitrate changes apply after restart; restart after changing sensor type.'):
+        if self.confirm('Save configuration permanently and verify readback? Hardware ID and target data index must identify one module. Check sensor compatibility. Bitrate changes apply after restart; restart after changing sensor type.'):
             self.work(lambda:self.service.apply(hw,cfg),lambda r:self.result(hw,r))
     def save_backup(self):
         hw=self.target()
         try:
             self.require_link();self.service.require(hw)
             if hw not in self.configs:raise ValueError('Detect / read F0 first')
-            cfg,trim,_=self.configs[hw];data=self.core.backup(hw,cfg,trim)
+            cfg,trim,_=self.configs[hw];data=self.core.backup(hw[0],cfg,trim)
             path=self.choose('Save verified F0 backup',True,'wideband-f0.wbf')
             if path:Path(path).write_bytes(data);self.note('Verified configuration/Rtrim backup saved with CRC.')
         except Exception as e:self.error(str(e))
@@ -310,13 +321,13 @@ class Manager(Gtk.Window):
         try:
             data=Path(path).read_bytes();cfg,trim=self.core.restore(data);hw=self.target()
             old=self.configs.get(hw)
-            summary=f'Backup source HW {data[6]}, target HW {hw}\nIndex/sensor/bitrate/TX: {cfg}\nRtrim: {trim/100:.2f} Ohm\nCurrent: {old}\n\nRestore all settings? Sensor and hardware must match. Two verified writes; errors may leave partial changes. Do not interrupt power.'
+            summary=f'Backup source HW {data[6]}, target HW {hw[0]}\nIndex/sensor/bitrate/TX: {cfg}\nRtrim: {trim/100:.2f} Ohm\nCurrent: {old}\n\nRestore all settings? Sensor and hardware must match. Two verified writes; errors may leave partial changes. Do not interrupt power.'
             if self.confirm(summary):self.work(lambda:self.service.restore(hw,cfg,trim),lambda r:self.result(hw,r))
         except Exception as e:self.error(str(e))
     def save_trim(self):
         try:
             from decimal import Decimal
-            resistance=Decimal(self.trim.get_text());hundred=resistance*100
+            resistance=Decimal(self.trim.get_text().replace(',','.'));hundred=resistance*100
             if not hundred.is_finite() or hundred!=hundred.to_integral() or not 3000<=hundred<=30000:raise ValueError('Use your sensor label value, 30.00..300.00 Ohm, at most two decimals.')
             hw=self.target();sensor=self.sensor.get_active();value=int(hundred)
             if sensor not in (0,4):raise ValueError('Rtrim requires Bosch LSU4.9 or LSU4.9 Rtrim SW.')
@@ -347,13 +358,13 @@ class Manager(Gtk.Window):
             self.service.require(hw);return self.service.request(DIAG1,hw),self.service.request(DIAG2,hw)
         def done(r):
             a,b=r;ac,target,state=struct.unpack('<HhB',a);current,voltage,supply=struct.unpack('<hHB',b)
-            self.ext_report.set_text(f'CAN snapshot / HW {hw}: Nernst AC {ac/1000:.3f} V; pump target {target/1000:.3f} mA; measured {current/1000:.3f} mA; effective heater {voltage/1000:.3f} V; supply over CAN {supply/10:.1f} V; heater state {state}.');self.note('Extended diagnostics updated (snapshot).')
+            self.ext_report.set_text(f'CAN snapshot / HW {hw[0]} / index {hw[1]}: Nernst AC {ac/1000:.3f} V; pump target {target/1000:.3f} mA; measured {current/1000:.3f} mA; effective heater {voltage/1000:.3f} V; supply over CAN {supply/10:.1f} V; heater state {state}.');self.note('Extended diagnostics updated (snapshot).')
         self.work(run,done)
     def legacy(self,kind):
         hw=self.target();value=self.settings()[{1:0,2:1,3:2}[kind]]
         def run():
-            ident={1:INDEX,2:SENSOR,3:BITRATE}[kind];data=bytes((value,hw)) if kind==1 else bytes((hw,value))
-            self.link.exchange((ident,True,data),lambda f:f[1] and ((kind==3 and f[0]==BITRATE+1 and f[2]==bytes((hw,value))) or (kind!=3 and f[0]==ACK and not f[2])))
+            ident={1:INDEX,2:SENSOR,3:BITRATE}[kind];data=bytes((value,hw[0])) if kind==1 else bytes((hw[0],value))
+            self.link.exchange((ident,True,data),lambda f:f[1] and ((kind==3 and f[0]==BITRATE+1 and f[2]==bytes((hw[0],value))) or (kind!=3 and f[0]==ACK and not f[2])))
         if self.confirm('Write legacy setting permanently? Hardware ID must be unique. Legacy ACKs have no sender ID or readback. Do not use other configuration tools concurrently.'):
             self.work(run,lambda _:self.note('Legacy command acknowledged; no configuration readback. Bitrate changes require reset.'))
     def flash(self):
@@ -363,7 +374,7 @@ class Manager(Gtk.Window):
             data=Path(path).read_bytes();hw=self.target()
             if not self.core.valid_image(data):raise ValueError('Invalid F0 app image: expected 25600 bytes, vectors at 0x08001800 and matching CRC. Full/bootloader images rejected.')
             if self.confirm('Update F0 application? Connect exactly ONE compatible module to the bus. Bootloader commands are broadcast. Application will be erased and replaced. Keep power stable.'):
-                self.work(lambda:self.service.flash(hw,data,lambda x:GLib.idle_add(self.progress.set_fraction,x)),lambda _:self.note('Image transferred and restart acknowledged. Check Pong/live data; protocol has no flash readback.'))
+                self.work(lambda:self.service.flash(hw[0],data,lambda x:GLib.idle_add(self.progress.set_fraction,x)),lambda _:self.note('Image transferred and restart acknowledged. Check Pong/live data; protocol has no flash readback.'))
         except Exception as e:self.error(str(e))
     def stop_heat(self):
         if self.heating and self.link and not self.link.ecu:
@@ -470,6 +481,15 @@ class Manager(Gtk.Window):
                 for b in self.graph.toggles:b.set_active(True)
                 self.graph.auto(True);self.graph.auto(False);self.graph.window.set_active(2);self.graph.toggle_pause();self.index.set_value(1);assert self.graph.points();self.index.set_value(0)
             else:assert not self.graph.points() and self.connect_button.get_sensitive()
+            self.result((4,0),([7,4,1,3,0],12345,True))
+            assert self.target()==(4,7) and self.trim.get_text()=='123.45'
+            assert (4,0) not in self.configs and (4,7) in self.configs
+            self.ext_report.set_text('Snapshot from previous target')
+            self.target_index.set_value(1)
+            assert not self.configs and not self.trim.get_text()
+            assert self.ext_report.get_text()=='No extended diagnostic snapshot read.'
+            self.target_index.set_value(0)
+            self.result((4,0),([0,4,1,3,0],12345,True))
             self.graph.area.queue_draw()
             def capture():
                 try:
