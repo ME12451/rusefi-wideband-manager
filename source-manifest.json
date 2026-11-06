@@ -1,0 +1,14 @@
+{
+  "source_checkout": "epicefi/firmware/controllers/can/wideband_firmware",
+  "head": "64cdf9f97ff9a1110ce3e7a47eb22ebdebe4bf86",
+  "sha256": {
+    "for_rusefi/wideband_can.h": "5bdc1e7abeca66806e847a6b4fff1ee3093f06425439bf3f4b4bba48077cabf3",
+    "for_rusefi/wideband_bitrate.h": "954f712d9983dba0988eb4b48d2f0755350e8309521a812d0031965ea2307b74",
+    "firmware/can.cpp": "e362ede018dbf1bfa1709e2e1ce13a2816149145fbbe260c35dd87a735771222",
+    "firmware/boards/port.h": "4d24d45c07397d0cd3fc213ca139f000cf306f6c9fbe2e7425ce17df3265ed93",
+    "firmware/wideband_config.h": "382879969447e1da1f0efda7b52235bf9d3a54306b280f49b01f63b5598c9b81",
+    "firmware/boards/f0_module/bootloader/bootloader.cpp": "280008b84c9cfdda49d9a4ae1c9dc381832483411e05d8664126ec3141bea82c",
+    "firmware/boards/f0_module/port.cpp": "2ee525dff5f271904c54b8afde9b3d39518dcd21efbf4d76ae62110a571e2397",
+    "firmware/heater_control.cpp": "0d5f25918996058f147709913f2b4cd6fab05ae1a894d025e17d26e12247465b"
+  }
+}
