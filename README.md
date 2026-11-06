@@ -31,6 +31,8 @@ Both applications address extended configuration by **hardware ID plus current t
 
 Indexed configuration requires [F0 Manager firmware 0.5.3](https://github.com/ME12451/wideband/releases/tag/manager-f0-0.5.3). The separate [minimal Selectable firmware](https://github.com/ME12451/wideband/releases/tag/selectable-f0-2026-10-25) only adds persisted bitrate selection. This desktop update does not change firmware.
 
+Änderungshistorie: [CHANGELOG.md](CHANGELOG.md).
+
 ## History and validation
 
 `v0.1.0` preserves the original Windows 0.1 sources and archive. `v0.5.3` contains the latest native Windows sources and updated separate Linux application. These are imports of preserved release snapshots; intermediate development commits were not reconstructed. Historical source manifests refer to their original snapshots. The abandoned Qt work remains only in prior Git commits, with no active release or tag.
