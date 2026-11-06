@@ -1,0 +1,180 @@
+#pragma once
+
+#include <cstdint>
+#include <cstddef>
+
+#include "port_shared.h"
+#include "wideband_config.h"
+#include "../for_rusefi/wideband_can.h"
+#include "../for_rusefi/wideband_calibration.h"
+
+using namespace wbo;
+
+struct AnalogChannelResult
+{
+    float NernstVoltage;
+    float PumpCurrentVoltage;
+    /* for dual version - this is voltage on Heater-, switches between zero and Vbatt with heater PWM,
+        * used for both Vbatt measurement and Heater diagnostic */
+    float HeaterSupplyVoltage;
+};
+
+struct AnalogResult
+{
+    AnalogChannelResult ch[AFR_CHANNELS];
+    float VirtualGroundVoltageInt;
+
+    #ifdef BOARD_HAS_VOLTAGE_SENSE
+    float SupplyVoltage;
+    #endif
+
+    float McuTemp;
+};
+
+// Enable ADCs, configure pins, etc
+void PortPrepareAnalogSampling();
+void AnalogSampleStart();
+AnalogResult AnalogSampleFinish();
+
+#ifndef BOARD_DEFAULT_SENSOR_TYPE
+#define BOARD_DEFAULT_SENSOR_TYPE SensorType::LSU49
+#endif
+
+enum class AuxOutputMode : uint8_t {
+    Afr0 = 0,
+    Afr1 = 1,
+    Lambda0 = 2,
+    Lambda1 = 3,
+    Egt0 = 4,
+    Egt1 = 5,
+};
+
+#define MAX_AFR_CHANNELS 4
+#define MAX_EGT_CHANNELS 4
+
+class Configuration {
+private:
+    // Increment this any time the configuration format changes
+    // It is stored along with the data to ensure that it has been written before
+    static constexpr uint32_t ExpectedTag = 0xDEADBE02;
+    uint32_t Tag = ExpectedTag;
+
+public:
+    bool IsValid() const
+    {
+        return this->Tag == ExpectedTag;
+    }
+
+    // Configuration defaults
+    void LoadDefaults()
+    {
+        calibration = wbo::MakeCalibrationRecord(0);
+        NoLongerUsed0 = 0;
+        sensorType = BOARD_DEFAULT_SENSOR_TYPE;
+
+        /* default auxout curve is 0..5V for AFR 8.5 to 18.0
+         * default auxout[n] input is AFR[n] */
+        for (size_t i = 0; i < 8; i++) {
+            auxOutBins[0][i] = auxOutBins[1][i] = 8.5 + (18.0 - 8.5) / 7 * i;
+            auxOutValues[0][i] = auxOutValues[1][i] = 0.0 + (5.0 - 0.0) / 7 * i;
+        }
+        auxOutputSource[0] = AuxOutputMode::Afr0;
+        auxOutputSource[1] = AuxOutputMode::Afr1;
+
+        for (size_t i = 0; i < MAX_AFR_CHANNELS; i++) {
+            // enable RusEFI protocol
+            afr[i].RusEfiTx = true;
+            afr[i].RusEfiTxDiag = true;
+            afr[i].RusEfiIdx = i;
+
+            // Disable AemNet
+            afr[i].AemNetTx = false;
+            afr[i].AemNetIdOffset = i;
+        }
+
+        for (size_t i = 0; i < MAX_EGT_CHANNELS; i++) {
+            // disable RusEFI protocol - not implemented
+            egt[i].RusEfiTx = false;
+            egt[i].RusEfiTxDiag = false;
+            egt[i].RusEfiIdx = i;
+
+            // Enable AemNet
+            egt[i].AemNetTx = true;
+            egt[i].AemNetIdOffset = i;
+        }
+
+        /* Finaly */
+        Tag = ExpectedTag;
+    }
+
+    // Actual configuration data
+    union {
+        struct {
+            uint8_t NoLongerUsed0 = 0;
+            // AUX0 and AUX1 curves
+            float auxOutBins[2][8];
+            float auxOutValues[2][8];
+            AuxOutputMode auxOutputSource[2];
+
+            SensorType sensorType;
+
+            // per AFR channel settings
+            struct {
+                bool RusEfiTx:1;
+                bool RusEfiTxDiag:1;
+                bool AemNetTx:1;
+
+                uint8_t RusEfiIdx;
+                uint8_t AemNetIdOffset;
+                uint8_t pad[5];
+            } afr[MAX_AFR_CHANNELS];
+
+            // per EGT channel settings
+            struct {
+                bool RusEfiTx:1;
+                bool RusEfiTxDiag:1;
+                bool AemNetTx:1;
+
+                uint8_t RusEfiIdx;
+                uint8_t AemNetIdOffset;
+                uint8_t pad[5];
+            } egt[MAX_EGT_CHANNELS];
+
+            // Extension in former padding: keep the tag and all existing offsets.
+            // Old flash has no matching magic/complement and decodes to disabled.
+            wbo::CalibrationRecord calibration;
+        } __attribute__((packed));
+
+        // pad to 256 bytes including tag
+        uint8_t pad[256 - sizeof(Tag)];
+    };
+};
+
+size_t BoardGetHwId();
+
+int InitConfiguration();
+Configuration* GetConfiguration();
+void SetConfiguration();
+
+/* TS stuff */
+uint8_t *GetConfigurationPtr();
+size_t GetConfigurationSize();
+int SaveConfiguration();
+const char *getTsSignature();
+
+void rebootNow();
+void rebootToOpenblt();
+
+// LSU4.2, LSU4.9 or LSU_ADV
+SensorType GetSensorType();
+void SetupESRDriver(SensorType sensor);
+void ToggleESRDriver(SensorType sensor);
+int GetESRSupplyR();
+
+#if defined(WB_CAN_BITRATE_CONFIG) && WB_CAN_BITRATE_CONFIG
+uint16_t GetSoftwareCalibration();
+wbo::CalibrationResult SetSoftwareCalibration(uint16_t centiohms, SensorType type);
+bool SetSensorType(SensorType type);
+bool IsSensorCalibrationReady();
+float GetPumpCalibrationGain();
+#endif

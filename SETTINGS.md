@@ -1,49 +1,44 @@
-# Einstellungen laut lokalem Wideband-Source
+# F0 / CAN: Einstellungen und Service v2 (Manager 0.5.3)
 
-Quelle: `firmware/boards/port.h`, `firmware/can.cpp`, `for_rusefi/wideband_can.h`, `for_rusefi/wideband_bitrate.h`, `firmware/wideband_config.h`. Keine erfundenen CAN-Register oder Write-Memory-Kommandos.
-
-| Feld / Funktion | Werte / Umfang | Erreichbarkeit in Version 0.1 |
+| Einstellung | Werte | Wirkung |
 |---|---|---|
-| Hardware-ID | 0..8, Loetbruecken `3 * sel1 + sel2` | Pong lesen; nicht per CAN aenderbar |
-| `sensorType` | LSU49=0, LSU42=1, LSUADV=2, LSU49_FAE=3 | CAN schreiben; keine vollstaendige Ruecklesung, Flags im Standardframe nur LSU49/FAE |
-| `afr[i].RusEfiIdx` | uint8, bis 4 Kanaele strukturell | CAN setzt Startindex plus Kanalnummer; Mess-ID 0x190 + 2 * Index |
-| `egt[i].RusEfiIdx` | uint8, bis 4 Kanaele strukturell | Derselbe CAN-Indexbefehl setzt auch EGT-Startindex; kein separates EGT-Kommando |
-| F0-Bitrate | 500k=0, 1M=1 | Schreiben mit eigener ACK-Zuordnung, nur erweiterte Firmware/Bootloader; nach Reset aktiv, kein Get-Kommando |
-| Heizfreigabe | Bit 0 im ECU-Status | Laufzeit-Broadcast alle 50 ms; kein persistentes Setting |
-| Externe Versorgungsspannung | Byte in 0.1 V | Laufzeit-Broadcast; Timeout 250 ms |
-| Pumpenverstaerkung | CAN-Kommentar 0..200%; Empfaenger clampF(0, gain, 1) | Effektiv 0..100%; GUI begrenzt auf den wirksamen Bereich |
-| `auxOutBins[2][8]` | 2 Kennlinien mit je 8 Eingangswerten | Kein CAN-Read/Write-Kommando |
-| `auxOutValues[2][8]` | 2 Kennlinien mit je 8 Ausgangswerten | Kein CAN-Read/Write-Kommando |
-| `auxOutputSource[2]` | AFR0, AFR1, Lambda0, Lambda1, EGT0, EGT1 | Kein CAN-Read/Write-Kommando |
-| `afr[0..3].RusEfiTx` | bool | Kein CAN-Read/Write-Kommando |
-| `afr[0..3].RusEfiTxDiag` | bool | Kein CAN-Read/Write-Kommando |
-| `afr[0..3].AemNetTx` | bool | Kein CAN-Read/Write-Kommando |
-| `afr[0..3].AemNetIdOffset` | uint8 | Kein CAN-Read/Write-Kommando |
-| `egt[0..3].RusEfiTx` | bool, laut Source nicht implementiert | Kein CAN-Read/Write-Kommando |
-| `egt[0..3].RusEfiTxDiag` | bool | Kein CAN-Read/Write-Kommando |
-| `egt[0..3].AemNetTx` | bool | Kein CAN-Read/Write-Kommando |
-| `egt[0..3].AemNetIdOffset` | uint8 | Kein CAN-Read/Write-Kommando |
+| Hardware-ID | 0..8 | Loetbruecken, nur lesen |
+| Messindex | 0..255 | Standard-ID 0x190 + 2 * Index; Diagnose-ID +1 |
+| Sensortyp | 0 LSU49, 1 LSU42, 2 LSUADV, 3 FAE LSU49, 4 LSU49 Rtrim SW | Persistiert, Hardware-/Sondeneignung vorausgesetzt |
+| Standard-Tx / Diagnose-Tx | je an/aus | Persistiert, standardmaessig beide an |
+| Bitrate | 0=500k, 1=1M | Gespeicherter Wert nach Reset aktiv; aktiver Wert separat lesbar |
+| Software-Rtrim | 0 oder 3000..30000 Centiohm | 0=kein Wert, sonst 30.00..300.00 Ohm; wirkt nur bei Typ 4 |
+| Heizfreigabe / Spannung / Pump Gain | Laufzeitstatus | Broadcast, nicht Bestandteil des persistenten Backups |
 
-Tag, `NoLongerUsed0`, Padding sowie der Bitraten-Magic/Invertiert-Datensatz sind interne Verwaltungsfelder, keine Nutzereinstellungen. Vier AFR-/EGT-Slots in der Struktur bedeuten nicht, dass jedes Board vier Kanaele besitzt. F0 hat einen AFR-Kanal. Die AUX-Standardkurve ist AFR 8.5..18 -> 0..5 V. Standard-Tx: AFR rusEFI+Diagnose aktiv, AFR AEMNet aus; EGT rusEFI aus/AEMNet aktiv (boardabhaengiger Betrieb).
+Werkseinstellungen erhalten die gespeicherte Bitrate, setzen Sondentyp auf Firmwaredefault, Index nach Loetbruecken (Mapping 2,0,3,4,0,1,5,6,7), Tx auf an und Rtrim auf 0. Pro F0 gibt es einen Wideband-Kanal. Keine EGT-/Analog-/AEMNet-Konfiguration.
 
-## CAN-Befehle (29 Bit Extended)
+## Neue gezielte CAN-Servicebefehle
 
-| ID | Daten / Bedeutung |
-|---|---|
-| `0x0EF00000` | App: 1 Byte Hardware-ID oder FF -> Reset; Bootloader: leer -> Start |
-| `0x0EF15A5A` | leer -> F0-App loeschen, Broadcast |
-| `0x0EF20000 \| offset` | 8 Byte Appdaten ab Offset, Broadcast |
-| `0x0EF30000` | leer -> Bootloader verlassen, Broadcast |
-| `0x0EF40000` | `[Startindex, Hardware-ID]` -> Index speichern |
-| `0x0EF50000` | `[Vbat*10, Heizfreigabe, PumpGainPercent]` -> Status-Broadcast |
-| `0x0EF60000` | `[Hardware-ID]`, FF fuer alle -> Pong |
-| `0x0EF70000` | `[Hardware-ID, Sensortyp]` -> speichern |
-| `0x0EF80000` | `[Hardware-ID, Bitratenwert]` -> Sonderfirmware-Bitrate speichern |
-| `0x0EF80001` | Antwort `[Hardware-ID, Bitratenwert]` |
-| `0x00727573` | ACK leer oder Pong mit 8 Byte; ACK ohne Ziel/Opcode |
+Alle Frames Extended DATA, DLC 8. Ab Manager 0.5.3: Request-ID **0x0EFDhhii**, Antwort-ID **0x0EFEhhii**; `hh` = Hardware-ID, `ii` = aktueller Datenindex. INFO meldet auf diesem Weg Serviceversion 2. Beide Selektoren muessen passen. Bei Indexaenderungen erfolgt die Antwort auf der alten Adresse, danach muss unter dem neuen Index gelesen werden.
 
-Standard-Datenframe: Version, Flags (Bit0 gueltig, Bit1 LSU49, Bit2 FAE), Lambda uint16 LE /10000, Temperatur uint16 LE in C, Padding. Diagnose: ESR uint16 LE, Nernst uint16 LE /1000 V, Pump-PWM /255, Status, Heater-PWM /255, Padding. IDs sind 11-Bit-Standard und pro Index zwei aufeinanderfolgende IDs. Statuswerte 0..7: Preheat, Warmup, ClosedLoop, DidntHeat, Overheat, Underheat, NotAllowed, CanSilent. Pong enthaelt HW-ID, Protokollversion, Jahr seit 2000, Monat, Tag und 3 reservierte Bytes.
+Der bisherige Weg bleibt in der Firmware erhalten: Request **0x0EFB0000**, Antwort **0x0EFC0000 | Hardware-ID**, INFO-Version 1. Er adressiert nur die HW-ID und ist bei doppelten HW-IDs nicht getrennt nutzbar. Der neue Manager verwendet ihn nicht als Konfigurationsfallback. Payloads und Befehle sind fuer beide Wege gleich. Diese IDs sind getrennt von den Kalibrierbefehlen aus dem anderen Quellstand.
 
-## Compile-Time-Einstellungen
+Request: `[Opcode, HW-ID, Transaktion, Payload0..4]`.
+Antwort: `[Opcode, Transaktion, Ergebnis, Payload0..4]`.
+Ergebnis: 0 OK, 1 ungueltig, 2 Flashfehler, 3 passender Bootloader fehlt, 4 unbekannter Befehl.
 
-`wideband_config.h` definiert unter anderem ESR-Sense-Filter, Pumpstrom-Sense-Gain/Widerstand/Filter, Nernst-Ziel, Pump-/Heiz-Regelperioden, Vorheizzeit, Warmup-Timeout, Spannungsstabilisierung und Ein-/Ausschaltschwellen, Pumpstart-Temperaturoffset und CAN-Status-Timeout. Weitere Regler-/Sondendaten und Boardoptionen stehen in den jeweiligen Regler-/Boardquellen. Dies sind Buildparameter, keine ueber das vorhandene CAN-Protokoll verfuegbaren Settings. Die Anwendung fuehrt keine universellen Speicherzugriffe aus.
+| Opcode | Funktion | Request-Payload | Antwort-Payload |
+|---|---|---|---|
+| 1 | Info | 0 | F0=0xF0, Protokoll=1, Capabilities=0x7F, 0, Kanalzahl=1 |
+| 2 | Konfiguration lesen | 0 | Index, Sensor, gespeicherte Bitrate, Tx-Flags, aktive Bitrate |
+| 3 | Konfiguration schreiben | Index, Sensor, Bitrate, Tx-Flags, 0xA5 | wie Opcode 2 |
+| 4 | Werkseinstellungen | 0xA5, 0, 0, 0, 0 | wie Opcode 2 |
+| 5 | Identifizieren | Sekunden 0..30, sonst 0 | Sekunden, sonst 0 |
+| 6 | MCU-Neustart | 0xA5, sonst 0 | 0; Reset nach Antwort |
+| 7 | Diagnose 1 | 0 | Nernst-AC uint16 LE mV, Pumpstrom Ist int16 LE uA, Heizzustand |
+| 8 | Diagnose 2 | 0 | Pumpstrom Soll int16 LE uA, effektive Heizspannung uint16 LE mV, CAN-Vbat in 0.1 V |
+| 9 | Rtrim lesen | 0 | Centiohm uint16 LE, Sensortyp, Kalibrierung bereit 0/1, 0 |
+| 10 | Rtrim + Bosch-Modus schreiben | Centiohm uint16 LE, Sensor 0/4, 0xA5, 0 | wie Opcode 9 |
+
+Tx-Flags: Bit 0 Standard, Bit 1 Diagnose. Sensor 4 erfordert einen gueltigen Nichtnull-Rtrim. Antworten muessen zur erwarteten Hardware-ID, DLC, Opcode und Transaktion passen. In Version 0.4 gibt es keinen RAM-Antwortcache. Neue Service-Schreibauftraege vergleichen die Einstellungen; ein unveraenderter Auftrag wird ohne Flash-Erase bestaetigt, wenn auch der echte Flashinhalt einschliesslich Bitratenrecord dazu passt. Nach einem Erasefehler wird die Speicherung deshalb nicht allein wegen des zurueckgesetzten RAM-Zustands als erfolgreich angesehen. Der Manager wiederholt unklare Schreibauftraege nicht automatisch.
+
+Die bestehenden Befehle fuer Index/Sensor/Ping/Heizstatus/Bitrate und F0-Bootloader bleiben erhalten. Auch die selectable-Rtrim-Befehle des anderen Quellstands bleiben erhalten: Set 0x0EF90000 DLC4 `[HW, Rlo, Rhi, Sensor]`, Get 0x0EF90002 DLC1 `[HW]`, Antwort 0x0EF90001 DLC5 `[HW,Rlo,Rhi,Result,Sensor]`. Der Manager verwendet fuer erweiterte Aktionen die neuen zuordenbaren Serviceantworten. Keine serielle Modul-Anbindung.
+
+## Backupformat
+
+20 Byte, little endian: Magic `WBF0` (0..3), Version 2 (4), Board 0xF0 (5), Quell-HW-ID (6), reserviert 0 (7), Index/Sensor/Bitrate/Tx-Flags (8..11), Rtrim uint16 (12..13), reserviert 0 (14..15), CRC32 ueber Bytes 0..15 (16..19). Keine ungeprueften Raw-Memory-Schreibzugriffe. Wiederherstellung hat zwei verifizierte Persistierschritte; sie ist nicht atomar.

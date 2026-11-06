@@ -1,0 +1,13 @@
+{
+  "source": "wideband-software-calibration",
+  "sha256": {
+    "for_rusefi/wideband_can.h": "fadaf5c934b89f464c65a608c14c4f0bf83c2c3375dda3d81dd1c61ba49adc57",
+    "for_rusefi/wideband_calibration.h": "23a29a8fc300cc4e272cc40fe8ae59c389b93ad8db17ad6435dd9d1f9f1f1a71",
+    "firmware/boards/port.h": "8fa9540a0490165b8c419c379e4e07f0c8f4519bc8c7c30b664822445b0e1736",
+    "firmware/boards/f0_module/port.cpp": "a9804ee997c430c703c0c4ced797b3fac11b1ad59b4630b9fffd9edee6eb0583",
+    "firmware/can.cpp": "70f1c2bca46551639c120eb31317ba2bdd73aa5cb434710cf9dee24ddfa341a2",
+    "firmware/sampling.cpp": "4ba8abe5e1b130f5287fb7061e61d0a5435899761cafd49e123a1d827d6690ce",
+    "firmware/lambda_conversion.cpp": "c4ad9da9eab567ab9b5b59bd7076946f5f9048ed086acaad14936bde6300c7c9",
+    "firmware/heater_thread.cpp": "f2ef6aba4b0d0d039ac29d40a461bbcee9d13896a31fdd890ee634858493470b"
+  }
+}
