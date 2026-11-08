@@ -15,15 +15,21 @@ Screenshots of the native Windows application, captured under Wine. Measurements
 
 ### Main window and live graph
 
-![Main window and live graph](docs/screenshots/windows-0.5.3-main.png)
+[![Main window and live graph](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-main.png)](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-main.png)
+
+[Open main window screenshot](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-main.png)
 
 ### F0 configuration / Backup
 
-![F0 configuration and backup](docs/screenshots/windows-0.5.3-config.png)
+[![F0 configuration and backup](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-config.png)](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-config.png)
+
+[Open configuration screenshot](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-config.png)
 
 ### First dropdown view: Dashboard / Warmup diagnostics
 
-![Dashboard and warmup diagnostics](docs/screenshots/windows-0.5.3-first.png)
+[![Dashboard and warmup diagnostics](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-first.png)](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-first.png)
+
+[Open first dropdown screenshot](https://raw.githubusercontent.com/ME12451/rusefi-wideband-manager/eeb40d036cbf0048a4d515a5f1a5117e76444fd6/docs/screenshots/windows-0.5.3-first.png)
 
 ## Windows
 
