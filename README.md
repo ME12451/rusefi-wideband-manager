@@ -9,6 +9,22 @@ Two independent applications configure rusEFI F0 wideband modules over CAN:
 
 Download the separate Windows ZIP or Linux tar.gz from [Releases](https://github.com/ME12451/rusefi-wideband-manager/releases/tag/v0.5.3). The applications share protocol/analytics headers but retain their existing platform interfaces and adapter implementations. The Qt 0.6 line has been discarded and its release downloads/tags withdrawn.
 
+## Screenshots — Windows 0.5.3
+
+Screenshots of the native Windows application, captured under Wine. Measurements are simulated demo data; no CAN hardware was connected.
+
+### Main window and live graph
+
+![Main window and live graph](docs/screenshots/windows-0.5.3-main.png)
+
+### F0 configuration / Backup
+
+![F0 configuration and backup](docs/screenshots/windows-0.5.3-config.png)
+
+### First dropdown view: Dashboard / Warmup diagnostics
+
+![Dashboard and warmup diagnostics](docs/screenshots/windows-0.5.3-first.png)
+
 ## Windows
 
 Extract the complete Windows archive and run `rusEFI-Wideband-Manager.exe`. PCAN requires the PEAK driver and 64-bit PCANBasic DLL. SLCAN uses a local COM port. The preserved, software-tested native 0.5.3 executable and firmware package are unchanged.
